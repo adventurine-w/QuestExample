@@ -7,7 +7,9 @@ import org.adv.clickerflex.features.challenger.abstr.QuestPredicateExtractor;
 import org.adv.clickerflex.features.challenger.abstr.QuestTypeAbstr;
 import org.adv.clickerflex.features.challenger.event.QuestCompleteEvent;
 import org.adv.clickerflex.mob.events.CustomMobDeathEvent;
+import org.adv.clickerflex.mob.events.PlayerDamageCustomMobEvent;
 import org.adv.clickerflex.player.CustomPlayer;
+import org.adv.clickerflex.player.data.events.PlayerCurrencyGainEvent;
 import org.adv.clickerflex.zlogging.Log;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -61,23 +63,21 @@ public class QuestImpl implements Listener{
         }
     }
 
-    public static final HashMap<Class<? extends Event>, Function<Event, Player>> eventPlayerResolver = new HashMap<>();
+    public static final HashMap<Class<? extends Event>, Function<? extends Event, Player>> eventPlayerResolver = new HashMap<>();
     static {
-        registerResolver(CustomMobDeathEvent.class, e -> {
-            if(e instanceof CustomMobDeathEvent ev){
-                return ev.getMob().getLastAttacker();
-            }
-            return null;
-        });
+        registerResolver(CustomMobDeathEvent.class, e -> e.getMob().getLastAttacker());
+        registerResolver(PlayerDamageCustomMobEvent.class, PlayerDamageCustomMobEvent::getPlayer);
+        registerResolver(PlayerCurrencyGainEvent.class, e -> e.getPlayer().getPlayer());
     }
-    public static void registerResolver(Class<? extends Event> eventClass, Function<Event, Player> resolver){
+    public static <T extends Event> void registerResolver(Class<T> eventClass, Function<T, Player> resolver){
         eventPlayerResolver.put(eventClass, resolver);
     }
     public static Player resolve(Event event){
         if(event instanceof PlayerEvent pe){
             return pe.getPlayer();
         }
-        Function<Event, Player> resolver = eventPlayerResolver.get(event.getClass());
+        @SuppressWarnings("unchecked")
+        var resolver = (Function<Event, Player>) eventPlayerResolver.get(event.getClass());
         if(resolver != null){
             return resolver.apply(event);
         }
